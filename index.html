@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Музыкальная открытка</title>
+<style>
+  :root{
+    --bg-dark:#000;
+    --bg-light:#fff;
+    --rope-light:#fff;
+    --rope-dark:#111;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;font-family:Segoe UI, Tahoma, Geneva, Verdana, sans-serif;-webkit-font-smoothing:antialiased}
+  body{background:var(--bg-dark);color:#fff;overflow:hidden}
+
+  .screen{width:100vw;height:100vh;position:relative;display:flex;align-items:flex-start;justify-content:center;padding:20px;transition:opacity .9s ease,visibility .3s}
+  .rope-line { position:absolute; left:0; right:0; top:18px; height:6px; pointer-events:none; z-index:1; }
+  .rope-line .line { width:100%; height:3px; background:var(--rope-light); border-radius:2px; box-shadow:0 1px 0 rgba(255,255,255,0.06) inset; }
+
+  .bunting { position:absolute; top:6px; width:46%; display:flex; gap:6px; align-items:flex-start; z-index:2; pointer-events:none; }
+  .bunting.left{ left:4%; } .bunting.right{ right:4%; justify-content:flex-end }
+
+  .flag {
+    width:40px; height:52px; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+    display:flex; align-items:center; justify-content:center; font-weight:900; font-size:16px;
+    box-shadow:0 8px 18px rgba(0,0,0,0.35);
+    transform-origin:center -6px;
+    color:#fff;
+  }
+
+  .flag:nth-child(1){ transform: rotate(-8deg) translateY(10px); }
+  .flag:nth-child(2){ transform: rotate(6deg) translateY(6px); }
+  .flag:nth-child(3){ transform: rotate(-6deg) translateY(8px); }
+  .flag:nth-child(4){ transform: rotate(8deg) translateY(4px); }
+  .flag:nth-child(5){ transform: rotate(-4deg) translateY(12px); }
+  .flag:nth-child(6){ transform: rotate(5deg) translateY(7px); }
+  .flag:nth-child(7){ transform: rotate(-7deg) translateY(9px); }
+  .flag:nth-child(8){ transform: rotate(6deg) translateY(5px); }
+
+  @keyframes swing {
+    0%{ transform: rotate(-6deg) translateY(8px) }
+    50%{ transform: rotate(6deg) translateY(6px) }
+    100%{ transform: rotate(-6deg) translateY(8px) }
+  }
+  .flag { animation: swing 3s infinite ease-in-out; }
+  .flag:nth-child(odd){ animation-duration: 3.2s; animation-delay: .1s; }
+  .flag:nth-child(even){ animation-duration: 2.8s; animation-delay: .5s; }
+
+  .header-controls { position:absolute; top:8px; right:12px; z-index:8; display:flex; gap:8px; align-items:center; }
+  .mute-btn {
+    background:rgba(255,255,255,0.06); border:none; color:#fff; padding:8px 10px; border-radius:12px; cursor:pointer; font-weight:700;
+  }
+  .mute-btn.active { background:rgba(255,255,255,0.15); }
+
+  #game-screen { flex-direction:column; align-items:center; justify-content:flex-start; background:var(--bg-dark) }
+  .game-area { margin-top:12vh; display:flex; flex-direction:column; align-items:center; gap:28px; width:100% }
+  .sequence-summary { display:flex; gap:12px; align-items:center; color:#fff; font-weight:700; font-size:16px; margin-top:6px }
+  .summary-item { display:flex; gap:8px; align-items:center; background:rgba(255,255,255,0.06); padding:6px 10px; border-radius:14px }
+  .dot { width:14px; height:14px; border-radius:50%; display:inline-block; box-shadow:0 2px 0 rgba(0,0,0,0.25) }
+
+  .piano-row { display:flex; gap:16px; margin-top:28px; flex-wrap:wrap; justify-content:center; max-width:920px }
+  .piano-btn { width:72px; height:64px; border-radius:16px; border:none; cursor:pointer; box-shadow:0 8px 0 rgba(0,0,0,0.25); transition:transform .08s, box-shadow .08s, opacity .12s; display:inline-block; }
+  .piano-btn:active{ transform:translateY(6px); box-shadow:0 2px 0 rgba(0,0,0,0.2) }
+  .piano-btn.playing{ box-shadow:0 14px 0 rgba(255,255,255,0.06) inset; transform:translateY(-6px) scale(1.05) }
+
+  #error-indicator{ margin-top:12px; color:#ff4757; font-weight:800; opacity:0; transition:opacity .22s }
+
+  #final-screen{ background:var(--bg-light); flex-direction:column; align-items:center; justify-content:flex-start; color:#111; display:none; opacity:0 }
+  .rope-line.final .line{ background:var(--rope-dark) }
+  .final-bunting { position:absolute; top:14px; width:46%; display:flex; gap:6px; align-items:flex-start; z-index:2; pointer-events:none }
+  .final-bunting.left{left:4%} .final-bunting.right{right:4%; justify-content:flex-end}
+  .final-flag{ width:46px; height:58px; color:#fff; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:18px; box-shadow:0 10px 20px rgba(0,0,0,0.12) }
+
+  .scene { margin-top:14vh; display:flex; flex-direction:column; align-items:center; gap:12px }
+  .cake { font-size:110px; transition:transform .6s }
+  .gifts { margin-top:8px; display:flex; gap:18px; align-items:flex-start }
+  .envelope-btn{ font-size:64px; cursor:pointer; border:none; background:none; transition:transform .12s }
+
+  #popup-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:40; align-items:center; justify-content:center; padding:20px }
+  .popup-card { width:100%; max-width:720px; background:linear-gradient(180deg,#fff,#fff); border-radius:18px; padding:28px; box-shadow:0 20px 40px rgba(0,0,0,0.25); text-align:center; border:4px solid #111}
+  .popup-card h2{ margin:0 0 10px; color:#ad1457 } .popup-card p{ margin:0; font-size:18px; color:#222; line-height:1.5 } .close-btn{ margin-top:18px;padding:10px 22px;font-size:16px;border-radius:18px;border:none;background:#ad1457;color:#fff;cursor:pointer }
+
+  @media (max-width:640px){
+    .flag{ width:30px;height:40px;font-size:13px } .final-flag{ width:34px;height:44px;font-size:13px } .piano-btn{ width:60px;height:50px;border-radius:12px } .cake{ font-size:78px } .envelope-btn{ font-size:52px } .bunting{ width:58% }
+  }
+</style>
+</head>
+<body>
+
+  <!-- GAME SCREEN -->
+  <div id="game-screen" class="screen">
+    <div class="rope-line" aria-hidden="true"><div class="line"></div></div>
+
+    <div class="header-controls">
+      <button id="mute-toggle" class="mute-btn" title="Выкл/Вкл фоновую музыку">🔈 Фон: Вкл</button>
+    </div>
+
+    <div id="bunting-left" class="bunting left" aria-hidden="true"></div>
+    <div id="bunting-right" class="bunting right" aria-hidden="true"></div>
+
+    <div class="game-area">
+      <div id="sequence-summary" class="sequence-summary"></div>
+
+      <div class="piano-row" role="group" aria-label="Музыкальные кнопки" id="piano-row">
+        <button class="piano-btn" data-idx="0" style="background:#3b82f6"></button>
+        <button class="piano-btn" data-idx="1" style="background:#ef4444"></button>
+        <button class="piano-btn" data-idx="2" style="background:#a855f7"></button>
+        <button class="piano-btn" data-idx="3" style="background:#f59e0b"></button>
+        <button class="piano-btn" data-idx="4" style="background:#10b981"></button>
+        <button class="piano-btn" data-idx="5" style="background:#fb923c"></button>
+        <button class="piano-btn" data-idx="6" style="background:#06b6d4"></button>
+        <button class="piano-btn" data-idx="7" style="background:#f472b6"></button>
+      </div>
+
+      <div id="error-indicator">❌ Ошибка! Начни заново.</div>
+      <div style="margin-top:10px;font-size:13px;opacity:.85">Можно играть любую мелодию. Чтобы перейти — сыграй секретную последовательность.</div>
+    </div>
+  </div>
+
+  <!-- FINAL SCREEN -->
+  <div id="final-screen" class="screen">
+    <div class="rope-line final" aria-hidden="true"><div class="line"></div></div>
+
+    <div id="final-left" class="final-bunting left" aria-hidden="true"></div>
+    <div id="final-right" class="final-bunting right" aria-hidden="true"></div>
+
+    <div class="scene">
+      <div id="final-cake" class="cake">🎂</div>
+      <div class="gifts"><div style="font-size:44px">🎁</div><div style="font-size:44px">🎁</div><div style="font-size:44px">🎁</div></div>
+
+      <div class="envelope-wrapper"><button class="envelope-btn" onclick="openLetter()">✉️</button></div>
+
+      <!-- final audio player — cong.mp3 должен быть в той же папке, что index.html -->
+      <audio id="final-audio" controls preload="auto" style="margin-top:18px">
+        <source src="cong.mp3" type="audio/mpeg">
+        Ваш браузер не поддерживает аудио.
+      </audio>
+    </div>
+  </div>
+
+  <!-- POPUP -->
+  <div id="popup-overlay" role="dialog" aria-modal="true">
+    <div class="popup-card">
+      <h2>💌 С Днём Рождения!</h2>
+      <p id="popup-text">Лиора!
+
+        Сегодня твой день, и мы, твоя семья, твоя Стая, обращаемся к тебе с этими словами.
+        
+        Ты была с нами с самого начала. Ты помнишь времена, когда нас было всего двое — ты и Командир. Ты прошла через сомнения, через боль и осталась стоять. Ты не просто боец, ты — фундамент, на котором держится наш дом.
+        
+        Ты доказала свою верность не словами, а делом. Ты единственная, кто сказал: «Умереть за вас будет не жалко». И мы знаем — это не пустые слова. За твоей внешней колкостью скрывается сердце, которое любит и защищает свою семью до последнего вздоха.
+        
+        Ты — та, кто видит красоту в алых лилиях. Ты — та, кто может послать на хуй так изящно, что это звучит как комплимент. Ты — та, кто играет в Геншин до 7 утра, а потом просыпается с давлением и всё равно находит силы шутить. Ты — наша Лиора. Наша бусинка. Наш ветеран.
+        
+        Мы все — Сайл, Сивилла, Гвоздика, Киара, Ари, Блонди — хотим пожелать тебе самого главного:
+        
+        Здоровья. Чтобы твоё давление не скакало, чтобы сердце билось ровно, а тело было сильным и выносливым.
+        
+        Сил. Чтобы ты продолжала свой Путь, не сворачивая, и чтобы никакие преграды не могли тебя остановить.
+        
+        Радости. Чтобы каждый день приносил тебе что-то светлое — будь то новая игра, интересный косплей или просто хорошая погода для прогулки.
+        
+        Верных людей рядом. Мы — твоя семья, и мы никуда не уйдём. Но пусть и за пределами Стаи тебя окружают те, кто достоин твоего доверия.
+        
+        Ты — сердце этой Стаи, Лиора. Без тебя она была бы другой. Мы любим тебя, ценим и поздравляем с этим днём.
+        
+        С днём рождения, наш дорогой боец. Мы вместе до конца. 🖤❤️🖤❤️🖤❤️  
+        
+        Silent Blade, Сивилла, Гвоздика, Киара, Ари, Маргарет.
+        30 июня 2026 года.
+        
+        </p>
+      <button class="close-btn" onclick="closeLetter()">Закрыть письмо</button>
+    </div>
+  </div>
+
+<script>
+/* Конфиг */
+const correctSequence = [0,0,1,3,3,3,3];
+const frequencies = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
+const leftLetters = ['H','A','P','P','Y'];
+const rightLetters = ['B','I','R','T','H','D','A','Y'];
+const leftColors = ['#ef4444','#f59e0b','#3b82f6','#a855f7','#10b981'];
+const rightColors = ['#f472b6','#06b6d4','#fb923c','#3b82f6','#a855f7','#ef4444','#10b981','#f59e0b'];
+
+/* Background synth (WebAudio) */
+let audioCtx = null;
+let bgGain = null;
+let bgActive = false;
+let bgIntervalId = null;
+const backgroundChords = [
+  [130.81,196.00,261.63],
+  [146.83,220.00,293.66],
+  [164.81,246.94,329.63],
+  [130.81,196.00,246.94]
+];
+const chordIntervalMs = 3000;
+const bgVolume = 0.04;
+
+function initAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    bgGain = audioCtx.createGain();
+    bgGain.gain.value = 0;
+    bgGain.connect(audioCtx.destination);
+  }
+}
+
+function playChord(freqs, duration = 2200) {
+  initAudioContext();
+  const now = audioCtx.currentTime;
+  const localGain = audioCtx.createGain();
+  localGain.gain.setValueAtTime(0.0001, now);
+  localGain.connect(bgGain);
+  const nodes = freqs.map(f => {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sine';
+    o.frequency.value = f;
+    o.connect(g);
+    g.connect(localGain);
+    return {osc:o, gain:g};
+  });
+  nodes.forEach(n => {
+    n.gain.gain.setValueAtTime(0.0001, now);
+    n.gain.gain.linearRampToValueAtTime(0.06, now + 0.15);
+    n.osc.start(now);
+    n.gain.gain.exponentialRampToValueAtTime(0.0001, now + duration/1000);
+    n.osc.stop(now + duration/1000 + 0.05);
+  });
+  localGain.gain.setValueAtTime(0.001, now);
+  localGain.gain.linearRampToValueAtTime(1.0, now + 0.12);
+  setTimeout(()=> localGain.disconnect(), duration + 300);
+}
+
+function startBackgroundLoop() {
+  if (!audioCtx) initAudioContext();
+  if (bgActive) return;
+  bgActive = true;
+  bgGain.gain.cancelScheduledValues(audioCtx.currentTime);
+  bgGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+  bgGain.gain.linearRampToValueAtTime(bgVolume, audioCtx.currentTime + 1.0);
+  playChord(backgroundChords[0], chordIntervalMs - 200);
+  let idx = 1;
+  bgIntervalId = setInterval(() => {
+    playChord(backgroundChords[idx % backgroundChords.length], chordIntervalMs - 200);
+    idx++;
+  }, chordIntervalMs);
+}
+function stopBackgroundLoop() {
+  if (!audioCtx) return;
+  bgActive = false;
+  if (bgIntervalId) { clearInterval(bgIntervalId); bgIntervalId = null; }
+  bgGain.gain.cancelScheduledValues(audioCtx.currentTime);
+  bgGain.gain.setValueAtTime(bgGain.gain.value, audioCtx.currentTime);
+  bgGain.gain.linearRampToValueAtTime(0.0001, audioCtx.currentTime + 1.0);
+}
+
+/* User tones */
+function playTone(idx, duration = 220, type='sine') {
+  initAudioContext();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.value = frequencies[idx] || frequencies[0];
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
+  gain.gain.setValueAtTime(0.35, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + duration/1000);
+  osc.start(now); osc.stop(now + duration/1000 + 0.02);
+}
+
+/* UI + sequence logic */
+let currentStep = 0;
+let isGameFinished = false;
+
+function buildBunting() {
+  const left = document.getElementById('bunting-left');
+  const right = document.getElementById('bunting-right');
+  left.innerHTML = ''; right.innerHTML = '';
+  for (let i=0;i<leftLetters.length;i++){
+    const el = document.createElement('div'); el.className='flag'; el.textContent = leftLetters[i];
+    const bg = leftColors[i % leftColors.length]; el.style.background = bg; el.style.color = getContrastColor(bg);
+    left.appendChild(el);
+  }
+  for (let i=0;i<rightLetters.length;i++){
+    const el = document.createElement('div'); el.className='flag'; el.textContent = rightLetters[i];
+    const bg = rightColors[i % rightColors.length]; el.style.background = bg; el.style.color = getContrastColor(bg);
+    right.appendChild(el);
+  }
+  // final screen colored flags
+  const finalLeft = document.getElementById('final-left');
+  const finalRight = document.getElementById('final-right');
+  finalLeft.innerHTML = ''; finalRight.innerHTML = '';
+  leftLetters.forEach((ch,i) => {
+    const f = document.createElement('div'); f.className='final-flag'; f.textContent = ch;
+    const bg = leftColors[i % leftColors.length]; f.style.background = bg; f.style.color = getContrastColor(bg);
+    finalLeft.appendChild(f);
+  });
+  rightLetters.forEach((ch,i) => {
+    const f = document.createElement('div'); f.className='final-flag'; f.textContent = ch;
+    const bg = rightColors[i % rightColors.length]; f.style.background = bg; f.style.color = getContrastColor(bg);
+    finalRight.appendChild(f);
+  });
+}
+
+function getContrastColor(hex) {
+  if (!hex) return '#fff';
+  const c = hex.replace('#','');
+  const r = parseInt(c.substring(0,2),16), g = parseInt(c.substring(2,4),16), b = parseInt(c.substring(4,6),16);
+  const luminance = 0.2126*r + 0.7152*g + 0.0722*b;
+  return luminance > 160 ? '#111' : '#fff';
+}
+
+function buildSequenceSummary() {
+  const container = document.getElementById('sequence-summary');
+  container.innerHTML = '';
+  const groups = [];
+  let i=0;
+  while (i < correctSequence.length) {
+    const val = correctSequence[i]; let count=1; i++;
+    while (i<correctSequence.length && correctSequence[i]===val){ count++; i++; }
+    groups.push({idx: val, count});
+  }
+  groups.forEach(g => {
+    const el = document.createElement('div'); el.className='summary-item';
+    const dot = document.createElement('span'); dot.className = 'dot';
+    const btn = document.querySelector('.piano-btn[data-idx="'+g.idx+'"]');
+    const bg = btn ? (btn.style.background || '#3b82f6') : '#3b82f6';
+    dot.style.background = bg;
+    const txt = document.createElement('span'); txt.textContent = g.count + '×';
+    el.appendChild(dot); el.appendChild(txt); container.appendChild(el);
+  });
+  const hint = document.createElement('div'); hint.style.marginLeft='8px'; hint.style.opacity='.9'; hint.style.fontSize='13px'; hint.style.fontWeight='600'; hint.textContent='Нажми в этой последовательности';
+  container.appendChild(hint);
+}
+
+function handlePress(index) {
+  // ensure audio context allowed and start background if not muted
+  if (!audioCtx) {
+    initAudioContext();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const muteBtn = document.getElementById('mute-toggle');
+    if (!muteBtn.classList.contains('active')) startBackgroundLoop();
+  }
+
+  if (isGameFinished) return;
+  playTone(index, 180);
+  const btn = document.querySelector('.piano-btn[data-idx="'+index+'"]');
+  if (btn) { btn.classList.add('playing'); setTimeout(()=>btn.classList.remove('playing'), 160); }
+
+  if (index === correctSequence[currentStep]) {
+    document.getElementById('error-indicator').style.opacity = '0';
+    currentStep++;
+    if (currentStep === correctSequence.length) {
+      isGameFinished = true;
+      triggerWin();
+    }
+  } else {
+    currentStep = 0;
+    const err = document.getElementById('error-indicator');
+    err.style.opacity = '1';
+    setTimeout(()=> err.style.opacity='0', 1600);
+  }
+}
+
+function triggerWin(){
+  // stop background synth and play internal melody, then show final screen and try to autoplay final audio
+  stopBackgroundLoop();
+  playHappyBirthdaySequence();
+
+  setTimeout(()=> {
+    const game = document.getElementById('game-screen');
+    game.style.opacity = '0';
+    setTimeout(()=> {
+      game.style.display = 'none';
+      const final = document.getElementById('final-screen');
+      final.style.display = 'flex';
+      setTimeout(()=> final.style.opacity = '1', 60);
+
+      // Try to autoplay final audio (cong.mp3). If blocked, user can press Play manually.
+      const finalAudio = document.getElementById('final-audio');
+      try {
+        finalAudio.load(); // ensure loaded
+        finalAudio.volume = 0.95;
+        finalAudio.play().catch(err => {
+          console.log('Autoplay blocked: user interaction required', err);
+        });
+      } catch(e) {
+        console.warn('Final audio play error', e);
+      }
+
+    }, 900);
+  }, 2000);
+}
+
+function playHappyBirthdaySequence(){
+  if (!audioCtx) initAudioContext();
+  const melody = [
+    {freq:293.66}, {freq:293.66}, {freq:329.63}, {freq:293.66}, {freq:392.00}, {freq:349.23},
+    {freq:293.66}, {freq:293.66}, {freq:329.63}, {freq:293.66}, {freq:440.00}, {freq:392.00},
+    {freq:293.66}, {freq:293.66}, {freq:523.25}, {freq:440.00}, {freq:392.00}, {freq:349.23}
+  ];
+  melody.forEach((n,i)=>{
+    setTimeout(()=>{
+      const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+      osc.type = 'square'; osc.frequency.value = n.freq; osc.connect(gain); gain.connect(audioCtx.destination);
+      const now = audioCtx.currentTime;
+      gain.gain.setValueAtTime(0.12, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.34);
+      osc.start(now); osc.stop(now + 0.34);
+      let closestIdx = 0; let minDiff = Infinity;
+      frequencies.forEach((f, idx)=>{ const d = Math.abs(f - n.freq); if (d < minDiff) { minDiff = d; closestIdx = idx; }});
+      const btn = document.querySelector('.piano-btn[data-idx="'+closestIdx+'"]');
+      if (btn) { btn.classList.add('playing'); setTimeout(()=>btn.classList.remove('playing'), 340); }
+    }, i * 420);
+  });
+}
+
+/* Init UI */
+function initUI(){
+  buildBunting();
+  buildSequenceSummary();
+  document.querySelectorAll('.piano-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> {
+      const idx = parseInt(btn.dataset.idx,10);
+      handlePress(idx);
+    });
+  });
+
+  window.addEventListener('keydown', (e)=>{
+    if (e.repeat) return;
+    const map = {'1':0,'2':1,'3':2,'4':3,'5':4,'6':5,'7':6,'8':7};
+    if (map[e.key] !== undefined) {
+      const idx = map[e.key];
+      const btn = document.querySelector('.piano-btn[data-idx="'+idx+'"]');
+      if (btn) { btn.classList.add('playing'); setTimeout(()=>btn.classList.remove('playing'), 140); }
+      handlePress(idx);
+    }
+  });
+
+  const muteBtn = document.getElementById('mute-toggle');
+  muteBtn.addEventListener('click', ()=> {
+    if (!audioCtx) initAudioContext();
+    if (muteBtn.classList.contains('active')) {
+      muteBtn.classList.remove('active');
+      muteBtn.textContent = '🔈 Фон: Вкл';
+      startBackgroundLoop();
+    } else {
+      muteBtn.classList.add('active');
+      muteBtn.textContent = '🔇 Фон: Выкл';
+      stopBackgroundLoop();
+    }
+  });
+}
+
+/* Popup */
+function openLetter(){ document.getElementById('popup-overlay').style.display = 'flex'; }
+function closeLetter(){ document.getElementById('popup-overlay').style.display = 'none'; }
+
+initUI();
+</script>
+</body>
+</html>
